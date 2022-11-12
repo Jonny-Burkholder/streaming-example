@@ -1,6 +1,7 @@
 package netkit
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"runtime/debug"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -130,6 +132,20 @@ func HandleMetrics(title string, ss []string) http.Handler {
 		return
 	}
 	return http.HandlerFunc(fn)
+}
+
+// HandleErrors expects a path of /error/{code} and will display an error page.
+func HandleErrors(w http.ResponseWriter, r *http.Request) {
+	p := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(p) > 1 {
+		code, err := strconv.Atoi(p[1])
+		if err != nil {
+			WriteErrorJSON(w, r, code, err)
+			return
+		}
+		WriteErrorJSON(w, r, code, errors.New(http.StatusText(code)))
+		return
+	}
 }
 
 // HandleWithLogging is a middleware function that takes a *Logger, and a

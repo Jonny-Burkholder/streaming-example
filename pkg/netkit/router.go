@@ -9,11 +9,11 @@ import (
 	"sync"
 )
 
-type Route struct {
-	Method  string
-	Pattern string
-	Handler http.Handler
-}
+// type Route struct {
+// 	Method  string
+// 	Pattern string
+// 	Handler http.Handler
+// }
 
 type routeEntry struct {
 	method  string
@@ -46,8 +46,8 @@ type Config struct {
 
 var defaultConfig = &Config{
 	StaticHandler: HandleStatic("/static/", "web/static/"),
-	ErrHandler:    http.HandlerFunc(NotFound),
-	MetricsOn:     false,
+	ErrHandler:    http.HandlerFunc(HandleErrors),
+	MetricsOn:     true,
 	LoggingLevel:  LevelInfo,
 }
 
@@ -73,19 +73,15 @@ func NewRouter(conf *Config) *Router {
 		mux.withLogging = true
 	}
 	if conf.StaticHandler != nil {
-		mux.Get("/static/", conf.StaticHandler)
+		mux.Handle(http.MethodGet, "/static/", conf.StaticHandler)
 	}
 	if conf.ErrHandler != nil {
-		mux.Get("/error/", conf.ErrHandler)
+		mux.Handle(http.MethodGet, "/error/", conf.ErrHandler)
 	}
 	if conf.MetricsOn {
-		mux.Get("/metrics", HandleMetrics("Registered Entries", mux.entries()))
+		mux.Handle(http.MethodGet, "/metrics", HandleMetrics("Registered Entries", mux.entries()))
 	}
 	return mux
-}
-
-func (rm *Router) Group(name string) *Router {
-	return rm
 }
 
 func (rm *Router) Handle(method string, pattern string, handler http.Handler) {
@@ -123,20 +119,20 @@ func (rm *Router) Forward(oldpattern string, newpattern string) {
 	rm.Handle(http.MethodGet, oldpattern, http.RedirectHandler(newpattern, http.StatusTemporaryRedirect))
 }
 
-func (rm *Router) Get(pattern string, handler http.Handler) {
-	rm.Handle(http.MethodGet, pattern, handler)
+func (rm *Router) Get(pattern string, handler http.HandlerFunc) {
+	rm.HandleFunc(http.MethodGet, pattern, handler)
 }
 
-func (rm *Router) Post(pattern string, handler http.Handler) {
-	rm.Handle(http.MethodPost, pattern, handler)
+func (rm *Router) Post(pattern string, handler http.HandlerFunc) {
+	rm.HandleFunc(http.MethodPost, pattern, handler)
 }
 
-func (rm *Router) Put(pattern string, handler http.Handler) {
-	rm.Handle(http.MethodPut, pattern, handler)
+func (rm *Router) Put(pattern string, handler http.HandlerFunc) {
+	rm.HandleFunc(http.MethodPut, pattern, handler)
 }
 
-func (rm *Router) Delete(pattern string, handler http.Handler) {
-	rm.Handle(http.MethodDelete, pattern, handler)
+func (rm *Router) Delete(pattern string, handler http.HandlerFunc) {
+	rm.HandleFunc(http.MethodDelete, pattern, handler)
 }
 
 func (rm *Router) Static(pattern string, path string) {
@@ -196,6 +192,9 @@ func (rm *Router) entries() []string {
 	defer rm.lock.Unlock()
 	var entries []string
 	for _, entry := range rm.entryMap {
+		entries = append(entries, fmt.Sprintf("%s %s\n", entry.method, entry.pattern))
+	}
+	for _, entry := range rm.entrySet {
 		entries = append(entries, fmt.Sprintf("%s %s\n", entry.method, entry.pattern))
 	}
 	return entries
