@@ -10,6 +10,11 @@ import (
 
 func main() {
 
+	testRouterAndGroups()
+}
+
+func testRouterAndGroups() {
+
 	r := netkit.NewRouter(nil)
 	r.Get("/home", handleHome)
 	r.Get("/home/info", handleHomeInfo)
@@ -23,7 +28,6 @@ func main() {
 	v2.Get("/home/info", handleHomeInfoVersion(2))
 
 	log.Panic(http.ListenAndServe(":3000", r))
-
 }
 
 func handleHome(w http.ResponseWriter, r *http.Request) {
