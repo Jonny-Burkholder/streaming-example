@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/Jonny-Burkholder/streaming-example/internal/handler"
+	"github.com/Jonny-Burkholder/streaming-example/pkg/netkit"
 	"github.com/joho/godotenv"
 )
 
@@ -18,16 +19,20 @@ func main() {
 		log.Panic("failure loading environment variables")
 	}
 
-	http.Handle("/v1/audio", addHeaders(http.FileServer(http.Dir(audio))))
-	http.Handle("/v1/video", addHeaders(http.FileServer(http.Dir(video))))
+	r := netkit.NewRouter(nil)
 
+	v1 := r.NewGroup("v1")
+	v1.Get("/audio", addHeaders(http.FileServer(http.Dir(audio)))) // should really be adding the headers somewhere else
+	v1.Get("/video", addHeaders(http.FileServer(http.Dir(video))))
+
+	v2 := r.NewGroup("v2")
 	// ideally this would include either a path variable or a query param to select a
 	// specific song, but this is just an example and I'm too lazy lol
-	http.Handle("/v2/audio", http.HandlerFunc(handler.AudioHandlerV2))
+	v2.Get("/audio", http.HandlerFunc(handler.AudioHandlerV2))
 
 	log.Println("Now serving on port 8080")
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", r))
 
 }
 
