@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/Jonny-Burkholder/streaming-example/internal/handler"
 	"github.com/joho/godotenv"
 )
 
@@ -17,8 +18,12 @@ func main() {
 		log.Panic("failure loading environment variables")
 	}
 
-	http.Handle("/audio", addHeaders(http.FileServer(http.Dir(audio))))
-	http.Handle("/video", addHeaders(http.FileServer(http.Dir(video))))
+	http.Handle("/v1/audio", addHeaders(http.FileServer(http.Dir(audio))))
+	http.Handle("/v1/video", addHeaders(http.FileServer(http.Dir(video))))
+
+	// ideally this would include either a path variable or a query param to select a
+	// specific song, but this is just an example and I'm too lazy lol
+	http.Handle("/v2/audio", http.HandlerFunc(handler.AudioHandlerV2))
 
 	log.Println("Now serving on port 8080")
 
