@@ -1,5 +1,11 @@
 package main
 
+import (
+	"io"
+	"log"
+	"net/http"
+	"os"
+)
 
 // ServeAFileHandler takes a pointer to a file, and returns a handler func from it. Make
 // sure you don't forget to close the file (outside outside of the handler) when finished.
@@ -7,8 +13,8 @@ package main
 func ServeAFileHandler(file *os.File) http.HandlerFunc {
 	// Initialize a small buffer.
 	buf := make([]byte, 512)
-    // Read the fist few bytes of the file so we can attempt
-    // to auto detect the Content-Type. 
+	// Read the fist few bytes of the file so we can attempt
+	// to auto detect the Content-Type.
 	_, err := file.Read(buf)
 	if err != nil {
 		panic(err)
