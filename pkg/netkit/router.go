@@ -200,8 +200,8 @@ func (rm *Router) entries() []string {
 	return entries
 }
 
-// match attempts to locate a handler on a handler map given a
-// path string; most-specific (longest) pattern wins
+// match attempts to locate a handler on a handler map given a path string. The
+// most-specific (longest) pattern wins. It returns the method, pattern and handler.
 func (rm *Router) match(path string) (string, string, http.Handler) {
 	// first, check for exact match
 	e, ok := rm.entryMap[path]

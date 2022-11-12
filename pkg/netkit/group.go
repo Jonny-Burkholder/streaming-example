@@ -1,7 +1,7 @@
 package netkit
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 	"path/filepath"
 )
@@ -19,48 +19,52 @@ type Group struct {
 }
 
 func (rm *Router) NewGroup(group string) *Group {
-	return &Group{
-		mux:   rm,
-		group: sanitize(group),
+	// standardize the group path
+	if len(group) > 0 && group[0] != '/' {
+		group = "/" + group
 	}
+	if group[len(group)-1] == '/' {
+		group = group[:len(group)-1]
+	}
+	// create a new group
+	g := &Group{
+		mux:   rm,
+		group: group,
+	}
+	// register base path for group
+	rm.Handle("*", join(group, "/"), http.StripPrefix(g.group, g.handleGroupRoot()))
+	// return new group
+	return g
 }
 
-// sanitize makes cleans the path "foo" into "/foo"
-func sanitize(s string) string {
-	if len(s) > 0 && s[0] != '/' {
-		s = "/" + s
-	}
-	if s[len(s)-1] == '/' {
-		s = s[:len(s)-1]
+// join cleans and joins the group path with the pattern and
+// returns the joined string
+func join(group, pattern string) string {
+	s := filepath.ToSlash(filepath.Join(group, pattern))
+	if pattern[len(pattern)-1] == '/' {
+		s += "/"
 	}
 	return s
 }
 
-func (g *Group) clean(pattern string) string {
-	gpattern := filepath.Join(g.group, pattern)
-	if pattern[len(pattern)-1] == '/' {
-		gpattern += "/"
-	}
-	return gpattern
-}
-
 func (g *Group) Get(pattern string, handler http.HandlerFunc) {
-	log.Printf("g.mux.Handle(%s, g.clean(%q), http.StripPrefix(%q, handler))\n", http.MethodGet, pattern, g.group)
-	g.mux.Handle(http.MethodGet, g.clean(pattern), http.StripPrefix(g.group, handler))
+	g.mux.Handle(http.MethodGet, join(g.group, pattern), http.StripPrefix(g.group, handler))
 }
 
 func (g *Group) Post(pattern string, handler http.HandlerFunc) {
-	g.mux.Post(g.clean(pattern), handler)
+	g.mux.Handle(http.MethodPost, join(g.group, pattern), http.StripPrefix(g.group, handler))
 }
 
 func (g *Group) Put(pattern string, handler http.HandlerFunc) {
-	g.mux.Put(g.clean(pattern), handler)
+	g.mux.Handle(http.MethodPut, join(g.group, pattern), http.StripPrefix(g.group, handler))
 }
 
 func (g *Group) Delete(pattern string, handler http.HandlerFunc) {
-	g.mux.Delete(g.clean(pattern), handler)
+	g.mux.Handle(http.MethodDelete, join(g.group, pattern), http.StripPrefix(g.group, handler))
 }
 
-func (g *Group) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	g.mux.ServeHTTP(w, r)
+func (g *Group) handleGroupRoot() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		WriteRaw(w, r, 200, []byte(fmt.Sprintf("group: %s", g.group)))
+	})
 }
