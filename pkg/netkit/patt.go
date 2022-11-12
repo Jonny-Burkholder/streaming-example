@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-func MatchPatternV1(p, path string) (string, string, string) {
-	var key, val, match string
+func MatchPatternV1(p, path string) (string, string, int) {
+	var key, val string
 	var b, e, n, i, hc, m int
-	for i < 3 {
+	for i < len(p) {
 		if hc == 0 && m == 0 {
 			n += strings.IndexByte(p, '{')
 			if n == -1 {
@@ -19,15 +19,14 @@ func MatchPatternV1(p, path string) (string, string, string) {
 			// opening curly found, set beginning offset (b)
 			b = n
 		}
-		// case: opening curly brace found, no matches found
 		if hc == 1 && m == 0 {
+			// opening curly found, no match found
 			if n <= len(p) && n <= len(path) {
 				if p[:n-1] == path[:n-1] {
-					m = n - 1
+					m = n - 1 // // match found
 				}
 			}
 		}
-		// case: opening curly brace found, match found
 		if hc == 1 && m > 0 {
 			n += strings.IndexByte(p[m:], '}')
 			if n == -1 {
@@ -38,33 +37,32 @@ func MatchPatternV1(p, path string) (string, string, string) {
 			// ending curly found, set ending offset (e)
 			e = n
 		}
-		// case: both curly braces found, and match established
 		if hc == 2 && m > 0 {
+			// both curly braces found, and match established
 			key = p[b:e]
 			val = path[m:]
-			match = p[:m]
 			break
 		}
 		i++
 	}
-	// fmt.Printf("n=%d, i=%d, hc=%d, m=%d, p=%q, path=%q, key=%q, val=%q, match=%q\n\n",
-	// 	n, i, hc, m, p[:m], path[:m], key, val, match)
-	return key, val, match
+	// we should have it all, return
+	return key, val, m
 }
 
-func MatchPatternV2(p, path string) (string, string, string) {
+func MatchPatternV2(p, path string) (string, string, int) {
 	p1 := strings.Split(p, "/")
 	p2 := strings.Split(path, "/")
 	if len(p1) != len(p2) {
-		return "", "", ""
+		return "", "", 0
 	}
-	var key, val, match string
+	var match int
+	var key, val string
 	for i := 0; i < len(p1); i++ {
 		if p1[i] != p2[i] && i > 0 {
 			if strings.IndexByte(p1[i], '{') != -1 || strings.IndexByte(p1[i], '}') != -1 {
 				key = p1[i]
 				val = p2[i]
-				match = strings.Join(p1[:i-1], "/")
+				match = len(strings.Join(p1[:i-1], "/"))
 			}
 		}
 	}
