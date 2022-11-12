@@ -1,0 +1,31 @@
+### get the home page
+GET http://localhost:3000/home
+Accept: text/plain
+
+### get the info home page
+GET http://localhost:3000/home/info
+Accept: text/plain
+
+### get the root of the v1 group
+GET http://localhost:3000/v1/
+Accept: text/plain
+
+### get the root of the v2 group
+GET http://localhost:3000/v2/
+Accept: text/plain
+
+### get the home page of the v1 group
+GET http://localhost:3000/v1/home
+Accept: text/plain
+
+### get the info home page of the v1 group
+GET http://localhost:3000/v1/home/info
+Accept: text/plain
+
+### get the home page of the v2 group
+GET http://localhost:3000/v2/home
+Accept: text/plain
+
+### get the info home page of the v2 group
+GET http://localhost:3000/v2/home/info
+Accept: text/plain
