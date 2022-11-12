@@ -2,18 +2,14 @@ package netkit
 
 import (
 	"fmt"
+	"log"
+	"mime"
 	"net/http"
 	"path"
 	"sort"
 	"strings"
 	"sync"
 )
-
-// type Route struct {
-// 	Method  string
-// 	Pattern string
-// 	Handler http.Handler
-// }
 
 type routeEntry struct {
 	method  string
@@ -33,6 +29,9 @@ func (m routeEntry) String() string {
 	}
 	if m.method == http.MethodDelete {
 		return fmt.Sprintf("[%s]&nbsp;%s", m.method, m.pattern)
+	}
+	if m.method == "*" {
+		return fmt.Sprintf("[%s]&nbsp;&nbsp;&nbsp;&nbsp;<a href=\"%s\">%s</a>", "ANY", m.pattern, m.pattern)
 	}
 	return fmt.Sprintf("[%s]&nbsp;%s", m.method, m.pattern)
 }
@@ -79,7 +78,7 @@ func NewRouter(conf *Config) *Router {
 		mux.Handle(http.MethodGet, "/error/", conf.ErrHandler)
 	}
 	if conf.MetricsOn {
-		mux.Handle(http.MethodGet, "/metrics", HandleMetrics("Registered Entries", mux.entries()))
+		mux.Handle(http.MethodGet, "/metrics", mux.handleMetrics())
 	}
 	return mux
 }
@@ -140,6 +139,58 @@ func (rm *Router) Static(pattern string, path string) {
 	rm.Handle(http.MethodGet, pattern, staticHandler)
 }
 
+func (rm *Router) handleMetrics() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		//
+		// Write page heading
+		sb := new(strings.Builder)
+		sb.WriteString("<h2>All route entries</h2>")
+		//
+		// Collect base routes (routes that have sub-routes)
+		var base []routeEntry
+		sb.WriteString("<h4>Base routes:</h4>")
+		rm.lock.Lock()
+		for _, entry := range rm.entrySet {
+			base = append(base, entry)
+		}
+		rm.lock.Unlock()
+		//
+		// Sort and write base routes
+		sort.Slice(base, func(i, j int) bool { return base[i].pattern < base[j].pattern })
+		for _, ent := range base {
+			sb.WriteString(ent.String())
+			sb.WriteString("<br>")
+		}
+		//
+		//
+		//
+		// Collect sub routes (routes that are a continuation of a base route)
+		var sub []routeEntry
+		sb.WriteString("<h4>Sub routes:</h4>")
+		rm.lock.Lock()
+		for _, entry := range rm.entryMap {
+			p := entry.pattern
+			if p[len(p)-1] == '/' {
+				continue
+			}
+			sub = append(sub, entry)
+		}
+		rm.lock.Unlock()
+		//
+		// Sort and write base routes
+		sort.Slice(sub, func(i, j int) bool { return sub[i].pattern < sub[j].pattern })
+		for _, ent := range sub {
+			sb.WriteString(ent.String())
+			sb.WriteString("<br>")
+		}
+		//
+		// Write Content-Type header, and write everything to the http.ResponseWriter
+		w.Header().Set("Content-Type", mime.TypeByExtension(".html"))
+		w.WriteHeader(200)
+		fmt.Fprintf(w, "%s", sb)
+	})
+}
+
 func (rm *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.RequestURI == "*" {
 		if r.ProtoAtLeast(1, 1) {
@@ -197,6 +248,7 @@ func (rm *Router) entries() []string {
 	for _, entry := range rm.entrySet {
 		entries = append(entries, fmt.Sprintf("%s %s\n", entry.method, entry.pattern))
 	}
+	log.Printf("[TESTING ENTRIES] >>> %v\n", entries)
 	return entries
 }
 

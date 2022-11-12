@@ -29,3 +29,31 @@ Accept: text/plain
 ### get the info home page of the v2 group
 GET http://localhost:3000/v2/home/info
 Accept: text/plain
+
+### test the metrics endpoint
+GET http://localhost:3000/metrics
+Accept: text/plain
+
+### test the error endpoint (401)
+GET http://localhost:3000/error/401
+Accept: text/plain
+
+### test the error endpoint (402)
+GET http://localhost:3000/error/402
+Accept: text/plain
+
+### test the error endpoint (403)
+GET http://localhost:3000/error/403
+Accept: text/plain
+
+### test the error endpoint (404)
+GET http://localhost:3000/error/404
+Accept: text/plain
+
+### test the error endpoint (407)
+GET http://localhost:3000/error/407
+Accept: text/plain
+
+### test the error endpoint (500)
+GET http://localhost:3000/error/500
+Accept: text/plain
