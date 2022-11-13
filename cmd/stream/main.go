@@ -14,6 +14,15 @@ var audio = os.Getenv("BASEPATH") + "/audio"
 var video = os.Getenv("BASEPATH") + "/video"
 
 func main() {
+
+	l := netkit.NewLogger(netkit.LevelInfo)
+
+	defer func() {
+		if r := recover(); r != nil {
+			l.Error("Recovered from panic", r)
+		}
+	}()
+
 	err := godotenv.Load(".env")
 	if err != nil {
 		log.Panic("failure loading environment variables")
@@ -22,8 +31,8 @@ func main() {
 	r := netkit.NewRouter(nil)
 
 	v1 := r.NewGroup("v1")
-	v1.Get("/audio", addHeaders(http.FileServer(http.Dir(audio)))) // should really be adding the headers somewhere else
-	v1.Get("/video", addHeaders(http.FileServer(http.Dir(video))))
+	v1.Get("/audio", handler.FileHandlerV1(audio)) // should really be adding the headers somewhere else
+	v1.Get("/video", handler.FileHandlerV1(video))
 
 	v2 := r.NewGroup("v2")
 	// ideally this would include either a path variable or a query param to select a
@@ -32,13 +41,6 @@ func main() {
 
 	log.Println("Now serving on port 8080")
 
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Panic(http.ListenAndServe(":8080", r))
 
-}
-
-func addHeaders(h http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		h.ServeHTTP(w, r)
-	}
 }

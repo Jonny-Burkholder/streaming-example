@@ -24,3 +24,7 @@ func AudioHandlerV2(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
+
+func FileHandlerV1(path string) http.HandlerFunc {
+	return addHeaders(http.FileServer(http.Dir(path)))
+}
