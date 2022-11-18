@@ -17,6 +17,7 @@ func TestNewTree(t *testing.T) {
 		Key string
 		Val any
 	}{
+		{"http://www.example.com/api/{version}/", true},
 		{"www.example.com", true},
 		{"http://www.example.com/api/", true},
 		{"www.example", true},
@@ -33,11 +34,18 @@ func TestNewTree(t *testing.T) {
 		rt.Insert(entry.Key, entry.Val)
 	}
 
+	t.Logf("Searching by closest prefix...")
+	searchKey := "http://www.example.com/api/foo/"
+	foundKey, _, _ := rt.FindLongestPrefix(searchKey)
+	fmt.Printf("FindLongestPrefix(%q) => %q\n", searchKey, foundKey)
+
 	t.Logf("Walking the tree...")
-	rt.Walk(func(k string, v interface{}) bool {
-		fmt.Printf("key: %q\n", k)
-		return false
-	})
+	rt.Walk(
+		func(k string, v interface{}) bool {
+			fmt.Printf("key: %q\n", k)
+			return false
+		},
+	)
 
 	t.Logf("Checking out the minimum, and the maximum...")
 	outMin, _, _ := rt.Min()
