@@ -2,10 +2,8 @@ package netkit
 
 import (
 	"fmt"
-	"log"
 	"mime"
 	"net/http"
-	"path"
 	"sort"
 	"strings"
 	"sync"
@@ -191,7 +189,7 @@ func (rm *Router) handleMetrics() http.Handler {
 	})
 }
 
-func (rm *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (rm *Router) _ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.RequestURI == "*" {
 		if r.ProtoAtLeast(1, 1) {
 			w.Header().Set("Connection", "close")
@@ -216,6 +214,42 @@ func (rm *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		hdlr = HandleWithLogging(rm.logger, hdlr)
 	}
 	hdlr.ServeHTTP(w, r)
+}
+
+func (rm *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.RequestURI == "*" {
+		if r.ProtoAtLeast(1, 1) {
+			w.Header().Set("Connection", "close")
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	found, entry := rm.matchV0(r)
+	if found {
+		if entry.method != r.Method && entry.method != "*" {
+			entry.handler.ServeHTTP(w, r)
+			return
+		}
+	}
+	http.NotFound(w, r)
+	return
+	// meth, _, hdlr := rm.match(r.URL.Path)
+	// if meth != r.Method && meth != "*" {
+	// 	hdlr = http.HandlerFunc(
+	// 		func(w http.ResponseWriter, r *http.Request) {
+	// 			code := http.StatusMethodNotAllowed
+	// 			http.Error(w, http.StatusText(code), code)
+	// 		},
+	// 	)
+	// }
+	// if hdlr == nil {
+	// 	hdlr = http.NotFoundHandler()
+	// }
+	// if rm.withLogging {
+	// 	// if logging is configured, then log, otherwise skip
+	// 	hdlr = HandleWithLogging(rm.logger, hdlr)
+	// }
+	// hdlr.ServeHTTP(w, r)
 }
 
 func (rm *Router) Len() int {
@@ -248,7 +282,6 @@ func (rm *Router) entries() []string {
 	for _, entry := range rm.entrySet {
 		entries = append(entries, fmt.Sprintf("%s %s\n", entry.method, entry.pattern))
 	}
-	log.Printf("[TESTING ENTRIES] >>> %v\n", entries)
 	return entries
 }
 
@@ -264,33 +297,57 @@ func (rm *Router) match(path string) (string, string, http.Handler) {
 	// contains all patterns that end in "/" sorted
 	// from longest to shortest
 	for _, e = range rm.entrySet {
-		if strings.HasPrefix(path, e.pattern) {
+		// inline check for same prefix has prefix
+		if len(path) >= len(e.pattern) && path[0:len(e.pattern)] == e.pattern {
 			return e.method, e.pattern, e.handler
 		}
 	}
 	return "", "", nil
 }
 
-// cleanPath returns the canonical path for p, eliminating . and .. elements
-func cleanPath(p string) string {
-	if p == "" {
-		return "/"
-	}
-	if p[0] != '/' {
-		p = "/" + p
-	}
-	np := path.Clean(p)
-	// path.Clean removes trailing slash except for root;
-	// put the trailing slash back if necessary.
-	if p[len(p)-1] == '/' && np != "/" {
-		// Fast path for common case of p being the string we want:
-		if len(p) == len(np)+1 && strings.HasPrefix(p, np) {
-			np = p
-		} else {
-			np += "/"
+func (rm *Router) matchV0(r *http.Request) (bool, *routeEntry) {
+	// check each entry in the map for a match against
+	// the current request.
+	for path, entry := range rm.entryMap {
+		// check for the presence of an opening path key
+		// byte, and if we cannot find one, we will do
+		// a simple path match.
+		beg := strings.IndexByte(path, '{')
+		if beg == -1 {
+			// check for a basic path match, and break
+			return path == r.URL.Path, &entry
 		}
+		// otherwise, we found an opening path key
+		// byte, so next, we will check for a closed
+		// path key byte.
+		end := strings.IndexByte(path, '}')
+		if end == -1 {
+			// we have not found a closed path
+			// key byte, which means there must
+			// be an error with p1, so a match
+			// will be impossible at this point,
+			// try next path entry...
+			continue
+		}
+		// next, make certain we have a match
+		if path[:beg] != r.URL.Path[:beg] {
+			// we don't so we continue to the next one
+			continue
+		}
+		// we have found a closed path key byte, so
+		// we should now extract the key from path
+		key := path[beg+1 : end]
+		// and then find the value that maps to our key.
+		i := strings.IndexByte(r.URL.Path[beg:], '/')
+		if i == -1 {
+			r.URL.Query().Add(key, r.URL.Path[beg:])
+		} else {
+			r.URL.Query().Add(key, r.URL.Path[beg:beg+i])
+		}
+		// now return our match, and entry
+		return true, &entry
 	}
-	return np
+	return false, nil
 }
 
 func appendSorted(es []routeEntry, e routeEntry) []routeEntry {
