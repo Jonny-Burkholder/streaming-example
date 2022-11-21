@@ -428,7 +428,7 @@ func (t *Tree) FindLongestPrefix(k string) (string, any, bool) {
 		}
 
 		// Consume the search prefix
-		if !(len(search) >= len(n.prefix) && search[0:len(n.prefix)] == n.prefix) {
+		if !(len(search) >= len(n.prefix) && (search[0:len(n.prefix)] == n.prefix)) {
 			// inlined version of !strings.HasPrefix(search, n.prefix)
 			break
 		}
