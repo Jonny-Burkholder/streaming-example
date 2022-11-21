@@ -10,6 +10,10 @@ import (
 
 func main() {
 	r := netkit.NewRouterV2()
+
+	// this works
+	r.Get("/", netkit.CORSHandler(nil).ServeHTTP)
+
 	r.Get("/metrics", r.MetricsHandler)
 	r.Get("/home", handleHome)
 	r.Get("/home/info", handleHomeInfo)

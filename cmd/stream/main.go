@@ -30,6 +30,11 @@ func main() {
 
 	r := netkit.NewRouter(nil)
 
+	cors := netkit.CORSHandler(nil) // nil = default config
+	r.Get("/", cors.ServeHTTP)      // this should handle cors site wide, I *THINK*
+	// but it is just an example, so you don't have to use it, I just put it here in
+	// case you wanted to play around with it.
+
 	v1 := r.NewGroup("v1")
 	v1.Get("/audio", handler.FileHandlerV1(audio)) // should really be adding the headers somewhere else
 	v1.Get("/video", handler.FileHandlerV1(video))
