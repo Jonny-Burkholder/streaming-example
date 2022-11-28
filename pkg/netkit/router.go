@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"mime"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -12,6 +13,7 @@ import (
 type routeEntry struct {
 	method  string
 	pattern string
+	regex   *regexp.Regexp
 	handler http.Handler
 }
 
@@ -81,23 +83,53 @@ func NewRouter(conf *Config) *Router {
 	return mux
 }
 
+// sanitizePattern sanitizes the provided pattern and returns a
+// normalized pattern and a boolean indicating true if it detected
+// that the pattern was a regular expression, and false if it did
+// not detect a regular expression pattern.
+func sanitizePattern(path string) (string, bool) {
+	i := strings.IndexByte(path, '{')
+	j := strings.IndexByte(path, '}')
+	isRegex := false
+	if i > 0 && j > 0 {
+		isRegex = true
+		path = path[:i] + `(?P<` + path[i+1:j] + `>[a-zA-Z0-9]+)`
+	}
+	if path[0] != '^' {
+		path = "^" + path
+	}
+	if path[len(path)-1] != '$' {
+		path = path + "$"
+	}
+	return path, isRegex
+}
+
 func (rm *Router) Handle(method string, pattern string, handler http.Handler) {
 	rm.lock.Lock()
 	defer rm.lock.Unlock()
-
 	if pattern == "" {
 		panic("http: invalid pattern")
 	}
 	if handler == nil {
 		panic("http: nil handler")
 	}
+	var isRegex bool
+	pattern, isRegex = sanitizePattern(pattern)
 	if _, exist := rm.entryMap[pattern]; exist {
 		panic("http: multiple registrations for " + pattern)
 	}
 	entry := routeEntry{
 		method:  method,
 		pattern: pattern,
+		regex:   nil,
 		handler: handler,
+	}
+	if isRegex {
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			panic(err)
+		}
+		entry.regex = re
 	}
 	rm.entryMap[pattern] = entry
 	if pattern[len(pattern)-1] == '/' {
@@ -138,55 +170,57 @@ func (rm *Router) Static(pattern string, path string) {
 }
 
 func (rm *Router) handleMetrics() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		//
-		// Write page heading
-		sb := new(strings.Builder)
-		sb.WriteString("<h2>All route entries</h2>")
-		//
-		// Collect base routes (routes that have sub-routes)
-		var base []routeEntry
-		sb.WriteString("<h4>Base routes:</h4>")
-		rm.lock.Lock()
-		for _, entry := range rm.entrySet {
-			base = append(base, entry)
-		}
-		rm.lock.Unlock()
-		//
-		// Sort and write base routes
-		sort.Slice(base, func(i, j int) bool { return base[i].pattern < base[j].pattern })
-		for _, ent := range base {
-			sb.WriteString(ent.String())
-			sb.WriteString("<br>")
-		}
-		//
-		//
-		//
-		// Collect sub routes (routes that are a continuation of a base route)
-		var sub []routeEntry
-		sb.WriteString("<h4>Sub routes:</h4>")
-		rm.lock.Lock()
-		for _, entry := range rm.entryMap {
-			p := entry.pattern
-			if p[len(p)-1] == '/' {
-				continue
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			//
+			// Write page heading
+			sb := new(strings.Builder)
+			sb.WriteString("<h2>All route entries</h2>")
+			//
+			// Collect base routes (routes that have sub-routes)
+			var base []routeEntry
+			sb.WriteString("<h4>Base routes:</h4>")
+			rm.lock.Lock()
+			for _, entry := range rm.entrySet {
+				base = append(base, entry)
 			}
-			sub = append(sub, entry)
-		}
-		rm.lock.Unlock()
-		//
-		// Sort and write base routes
-		sort.Slice(sub, func(i, j int) bool { return sub[i].pattern < sub[j].pattern })
-		for _, ent := range sub {
-			sb.WriteString(ent.String())
-			sb.WriteString("<br>")
-		}
-		//
-		// Write Content-Type header, and write everything to the http.ResponseWriter
-		w.Header().Set("Content-Type", mime.TypeByExtension(".html"))
-		w.WriteHeader(200)
-		fmt.Fprintf(w, "%s", sb)
-	})
+			rm.lock.Unlock()
+			//
+			// Sort and write base routes
+			sort.Slice(base, func(i, j int) bool { return base[i].pattern < base[j].pattern })
+			for _, ent := range base {
+				sb.WriteString(ent.String())
+				sb.WriteString("<br>")
+			}
+			//
+			//
+			//
+			// Collect sub routes (routes that are a continuation of a base route)
+			var sub []routeEntry
+			sb.WriteString("<h4>Sub routes:</h4>")
+			rm.lock.Lock()
+			for _, entry := range rm.entryMap {
+				p := entry.pattern
+				if p[len(p)-1] == '/' {
+					continue
+				}
+				sub = append(sub, entry)
+			}
+			rm.lock.Unlock()
+			//
+			// Sort and write base routes
+			sort.Slice(sub, func(i, j int) bool { return sub[i].pattern < sub[j].pattern })
+			for _, ent := range sub {
+				sb.WriteString(ent.String())
+				sb.WriteString("<br>")
+			}
+			//
+			// Write Content-Type header, and write everything to the http.ResponseWriter
+			w.Header().Set("Content-Type", mime.TypeByExtension(".html"))
+			w.WriteHeader(200)
+			fmt.Fprintf(w, "%s", sb)
+		},
+	)
 }
 
 func (rm *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
