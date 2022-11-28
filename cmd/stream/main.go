@@ -12,6 +12,7 @@ import (
 
 var audio = os.Getenv("BASEPATH") + "/audio"
 var video = os.Getenv("BASEPATH") + "/video"
+var image = os.Getenv("BASEPATH") + "/image"
 
 func main() {
 
@@ -38,11 +39,13 @@ func main() {
 	v1 := r.NewGroup("v1")
 	v1.Get("/audio", handler.FileHandlerV1(audio)) // should really be adding the headers somewhere else
 	v1.Get("/video", handler.FileHandlerV1(video))
+	v1.Get("/image", handler.FileHandlerV1(image))
 
 	v2 := r.NewGroup("v2")
 	// ideally this would include either a path variable or a query param to select a
 	// specific song, but this is just an example and I'm too lazy lol
 	v2.Get("/audio", http.HandlerFunc(handler.AudioHandlerV2))
+	v2.Get("/video", http.HandlerFunc(handler.ImageHandlerV2))
 
 	log.Println("Now serving on port 8080")
 
