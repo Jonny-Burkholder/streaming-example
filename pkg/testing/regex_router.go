@@ -5,7 +5,23 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 )
+
+func sanitizePattern(path string) string {
+	i := strings.IndexByte(path, '{')
+	j := strings.IndexByte(path, '}')
+	if i > 0 && j > 0 {
+		path = path[:i] + `(?P<` + path[i+1:j] + `>[a-zA-Z0-9]+)`
+	}
+	if path[0] != '^' {
+		path = "^" + path
+	}
+	if path[len(path)-1] != '$' {
+		path = path + "$"
+	}
+	return path
+}
 
 type reRoute struct {
 	method  string
@@ -29,7 +45,8 @@ func NewRegexURLMatcher() *RegexURLMatcher {
 }
 
 func (re *RegexURLMatcher) HandleFunc(method string, pattern string, handler http.HandlerFunc) {
-	compiled, err := regexp.Compile(`^` + pattern + `$`)
+	pattern = sanitizePattern(pattern)
+	compiled, err := regexp.Compile(pattern)
 	if err != nil {
 		panic(err)
 	}
@@ -39,7 +56,6 @@ func (re *RegexURLMatcher) HandleFunc(method string, pattern string, handler htt
 		re:      compiled,
 		h:       handler,
 	}
-
 }
 
 func (re *RegexURLMatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {

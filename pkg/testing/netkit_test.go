@@ -204,9 +204,11 @@ func Benchmark_HTTP_CustomRegexRouter(b *testing.B) {
 			return
 		},
 	)
+	// `/api/users/(?P<id>\d+)`
+
 	mux.HandleFunc(
 		http.MethodGet,
-		`/api/users/(?P<id>\d+)`, func(w http.ResponseWriter, r *http.Request) {
+		`/api/users/{id}`, func(w http.ResponseWriter, r *http.Request) {
 			id := r.FormValue("id")
 			if id == "" {
 				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
