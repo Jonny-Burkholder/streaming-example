@@ -189,7 +189,7 @@ func (rm *Router) handleMetrics() http.Handler {
 	})
 }
 
-func (rm *Router) _ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (rm *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.RequestURI == "*" {
 		if r.ProtoAtLeast(1, 1) {
 			w.Header().Set("Connection", "close")
@@ -216,7 +216,7 @@ func (rm *Router) _ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hdlr.ServeHTTP(w, r)
 }
 
-func (rm *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (rm *Router) _ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.RequestURI == "*" {
 		if r.ProtoAtLeast(1, 1) {
 			w.Header().Set("Connection", "close")
