@@ -30,6 +30,11 @@ func main() {
 	}
 
 	r := netkit.NewRouter(nil)
+	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/ping" && r.Method == http.MethodGet {
+			netkit.WriteRaw(w, r, http.StatusOK, []byte("PONG"))
+		}
+	})
 
 	cors := netkit.CORSHandler(nil) // nil = default config
 	r.Get("/", cors.ServeHTTP)      // this should handle cors site wide, I *THINK*
